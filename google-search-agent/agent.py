@@ -1,8 +1,10 @@
 # google-search-agent/agent.py
 import asyncio
+from typing import AsyncGenerator
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.google_search_tool import GoogleSearchTool
-from google.adk.runners import InMemoryRunner
+from google.adk.runners import Runner
+from google.genai import types
 
 class SearchAgent:
     def __init__(self):
@@ -13,22 +15,24 @@ class SearchAgent:
             instruction="You are a helpful assistant. Use Google Search for facts.",
             tools=[GoogleSearchTool(bypass_multi_tools_limit=True)],
         )
-        # 2. Use a Runner to handle the execution context
-        self.runner = InMemoryRunner(agent=self.adk_agent)
+        # 2. Use a standard Runner for production handling
+        self.runner = Runner(agent=self.adk_agent, session_service=None) # session_service managed by RE
 
     async def query(self, input: str) -> str:
-        """
-        Reasoning Engine calls this method. We use the runner to execute the agent logic.
-        """
-        # run_debug is a helper that returns a list of events
-        events = await self.runner.run_debug(input, quiet=True)
-        
-        # Extract the final text from the events
-        for event in reversed(events):
+        """Standard non-streaming endpoint: POST /api/reasoning_engine"""
+        response_text = ""
+        async for event in self.runner.run_async(user_id="user", session_id="default", new_message=types.UserContent(parts=[types.Part(text=input)])):
             if event.content and event.content.parts:
-                return "".join(p.text for p in event.content.parts if p.text)
-        
-        return "No response generated."
+                response_text += "".join(p.text for p in event.content.parts if p.text)
+        return response_text
 
-# Match this to your Terraform entrypoint_object
+    async def stream_query(self, input: str) -> AsyncGenerator[str, None]:
+        """Streaming endpoint: POST /api/stream_reasoning_engine"""
+        async for event in self.runner.run_async(user_id="user", session_id="default", new_message=types.UserContent(parts=[types.Part(text=input)])):
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if part.text:
+                        yield part.text
+
+# Must match your Terraform entrypoint_object
 root_agent = SearchAgent()
