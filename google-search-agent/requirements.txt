@@ -1,3 +1,4 @@
 google-adk
+google-genai>=1.56.0
 google-cloud-aiplatform[reasoningengine]
 google-auth
