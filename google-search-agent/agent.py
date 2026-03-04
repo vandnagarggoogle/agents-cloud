@@ -1,29 +1,34 @@
 # google-search-agent/agent.py
+import asyncio
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.google_search_tool import GoogleSearchTool
+from google.adk.runners import InMemoryRunner
 
 class SearchAgent:
     def __init__(self):
-        # Initialize the underlying ADK agent
-        self.agent = LlmAgent(
+        # 1. Initialize the ADK agent
+        self.adk_agent = LlmAgent(
             model="gemini-2.0-flash",
             name="google_search_agent",
-            description="An agent that can search the web to answer questions.",
-            instruction="""
-                You are a helpful research assistant. 
-                Always use the Google Search tool to find the most up-to-date information before answering.
-            """,
+            instruction="You are a helpful assistant. Use Google Search for facts.",
             tools=[GoogleSearchTool(bypass_multi_tools_limit=True)],
         )
+        # 2. Use a Runner to handle the execution context
+        self.runner = InMemoryRunner(agent=self.adk_agent)
 
-    def query(self, input: str) -> str:
+    async def query(self, input: str) -> str:
         """
-        Explicitly define the query method for Reasoning Engine registration.
+        Reasoning Engine calls this method. We use the runner to execute the agent logic.
         """
-        # Call the underlying ADK agent's invocation logic
-        # Note: Depending on ADK version, this might be self.agent.invoke(input) 
-        # or self.agent.query(input) if using the standard LlmAgent.
-        return self.agent.invoke(input) 
+        # run_debug is a helper that returns a list of events
+        events = await self.runner.run_debug(input, quiet=True)
+        
+        # Extract the final text from the events
+        for event in reversed(events):
+            if event.content and event.content.parts:
+                return "".join(p.text for p in event.content.parts if p.text)
+        
+        return "No response generated."
 
-# Define the entrypoint object expected by your Terraform
+# Match this to your Terraform entrypoint_object
 root_agent = SearchAgent()
