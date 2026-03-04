@@ -23,7 +23,7 @@ class SearchAgent:
         # Call the underlying ADK agent's invocation logic
         # Note: Depending on ADK version, this might be self.agent.invoke(input) 
         # or self.agent.query(input) if using the standard LlmAgent.
-        return self.agent.query(input)
+        return self.agent.invoke(input) 
 
 # Define the entrypoint object expected by your Terraform
 root_agent = SearchAgent()
