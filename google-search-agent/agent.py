@@ -1,53 +1,44 @@
+import asyncio
 import logging
-import sys
 from typing import AsyncGenerator
-
-# 1. Add logging so you can see what fails in Logs Explorer
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-logger = logging.getLogger(__name__)
-
-try:
-    from google.adk.agents.llm_agent import LlmAgent
-    from google.adk.tools.google_search_tool import GoogleSearchTool
-    from google.adk.runners import InMemoryRunner
-    from google.genai import types
-    logger.info("ADK and GenAI libraries loaded successfully.")
-except ImportError as e:
-    logger.error(f"Critical Import Error: {e}")
-    raise
+from google.adk.agents.llm_agent import LlmAgent
+from google.adk.tools.google_search_tool import GoogleSearchTool
+from google.adk.runners import InMemoryRunner
+from google.genai import types
 
 class SearchAgent:
     def __init__(self):
-        logger.info("Initializing SearchAgent...")
-        # Define the agent logic
+        # 1. Initialize the ADK agent
         self.adk_agent = LlmAgent(
             model="gemini-2.0-flash",
             name="google_search_agent",
             instruction="You are a helpful assistant. Use Google Search for facts.",
             tools=[GoogleSearchTool(bypass_multi_tools_limit=True)],
         )
-        # Use InMemoryRunner: it handles its own session and app_name automatically
+        # 2. InMemoryRunner is the robust choice for custom agents
         self.runner = InMemoryRunner(agent=self.adk_agent)
-        logger.info("SearchAgent ready.")
 
     async def query(self, input: str) -> str:
-        """Endpoint for POST /api/reasoning_engine"""
-        logger.info(f"Query: {input}")
+        """Standard endpoint: POST /api/reasoning_engine"""
         response_text = ""
-        # Create a fresh message object
-        content = types.UserContent(parts=[types.Part(text=input)])
-        
-        async for event in self.runner.run_async(user_id="user", session_id="default", new_message=content):
+        # user_id and session_id are required by the ADK Runner
+        async for event in self.runner.run_async(
+            user_id="user", 
+            session_id="default", 
+            new_message=types.UserContent(parts=[types.Part(text=input)])
+        ):
             if event.content and event.content.parts:
                 response_text += "".join(p.text for p in event.content.parts if p.text)
         return response_text
 
-    async def stream_query(self, input: str) -> AsyncGenerator[str, None]:
-        """Endpoint for POST /api/stream_reasoning_engine"""
-        logger.info(f"Streaming Query: {input}")
-        content = types.UserContent(parts=[types.Part(text=input)])
-        
-        async for event in self.runner.run_async(user_id="user", session_id="default", new_message=content):
+    # CHANGE: Renamed from 'stream_query' to 'async_stream_query'
+    async def async_stream_query(self, input: str) -> AsyncGenerator[str, None]:
+        """Streaming endpoint: POST /api/stream_reasoning_engine"""
+        async for event in self.runner.run_async(
+            user_id="user", 
+            session_id="default", 
+            new_message=types.UserContent(parts=[types.Part(text=input)])
+        ):
             if event.content and event.content.parts:
                 for part in event.content.parts:
                     if part.text:
