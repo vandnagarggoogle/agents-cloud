@@ -1,3 +1,4 @@
-google-adk
+google-adk>=1.18.0
+google-cloud-aiplatform[reasoningengine]>=1.126.1
 google-genai>=1.56.0
-google-cloud-aiplatform[reasoningengine]
+opentelemetry-exporter-gcp-trace
