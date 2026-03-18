@@ -1,5 +1,5 @@
 from google.adk.agents import Agent
-from google.adk.tools import AgentRegistry
+from google.adk.integrations.agent_registry import AgentRegistry
 from vertexai.agent_engines import AdkApp
 import os
 
