@@ -1,3 +1,5 @@
 google-adk
-google-cloud-aiplatform[reasoningengine]
-google-auth
+google-cloud-aiplatform>=1.49.0
+a2a-sdk>=0.3.4
+pandas
+db-dtypes

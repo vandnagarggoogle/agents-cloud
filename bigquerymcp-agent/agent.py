@@ -1,35 +1,26 @@
-# agent.py
-from google.adk.agents.llm_agent import LlmAgent
-from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
-from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
-import google.auth
+from google.adk.agents import Agent
+from google.adk.integrations.agent_registry import AgentRegistry
+from vertexai.agent_engines import AdkApp
+import os
 
-# Configuration for BigQuery MCP
-BIGQUERY_AGENT_NAME = "bigquery_mcp_agent"
-BIGQUERY_MCP_ENDPOINT = "https://bigquery.googleapis.com/mcp"
-BIGQUERY_SCOPE = "https://www.googleapis.com/auth/bigquery"
-
-# Initialize credentials for the MCP connection
-credentials, project_id = google.auth.default(scopes=[BIGQUERY_SCOPE])
-credentials.refresh(google.auth.transport.requests.Request())
-oauth_token = credentials.token
-
-# Set up the BigQuery MCP Toolset
-bigquery_mcp_toolset = McpToolset(
-    connection_params=StreamableHTTPConnectionParams(
-        url=BIGQUERY_MCP_ENDPOINT,
-        headers={"Authorization": f"Bearer {oauth_token}"},
-    )
+# Initialize Registry client
+registry = AgentRegistry(
+    project_id=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+    location="global"
 )
 
-# Define the root agent
-root_agent = LlmAgent(
-    model="gemini-2.0-flash", # Or your preferred model
-    name=BIGQUERY_AGENT_NAME,
-    description="Agent to answer questions about BigQuery data and execute SQL queries using MCP.",
-    instruction="""
-        You are a data science assistant. 
-        Use the provided BigQuery tools to explore datasets and answer user questions with SQL.
-    """,
-    tools=[bigquery_mcp_toolset],
+# Fetch the BigQuery tools using the staging resource ID
+# Resource ID discovered from 'agent-registry mcp-servers list'
+bq_resource = "projects/f7-aesthetic-frame-479413/locations/global/mcpServers/agentregistry-00000000-0000-0000-308e-18597b8ca588"
+bq_tools = registry.get_mcp_toolset(bq_resource)
+
+# Define the Data Science Agent
+root_agent = Agent(
+    model='gemini-2.0-flash',
+    name='data-science-agent',
+    instruction="""You are a world-class data scientist. 
+    Use BigQuery to retrieve data and return helpful insights.""",
+    tools=[bq_tools],
 )
+
+agent = AdkApp(agent=root_agent)
